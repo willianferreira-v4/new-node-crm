@@ -32,7 +32,7 @@ export async function executeActivity(this: IExecuteFunctions): Promise<INodeExe
 
 				const assigneeIdentityId = this.getNodeParameter('assigneeIdentityId', i) as string;
 
-				const additionalFields = this.getNodeParameter('additionalFields', i) as any;
+				const additionalFields = this.getNodeParameter('additionalFields', i) as IDataObject;
 
 				const body: IDataObject = {
 					targetType,
@@ -49,7 +49,7 @@ export async function executeActivity(this: IExecuteFunctions): Promise<INodeExe
 				returnData.push({ json: response, pairedItem: i });
 			} else if (operation === 'update') {
 				const activityId = this.getNodeParameter('activityId', i) as string;
-				const updateFields = this.getNodeParameter('updateFields', i) as any;
+				const updateFields = this.getNodeParameter('updateFields', i) as IDataObject;
 
 				const body: IDataObject = {
 					...updateFields,
@@ -64,7 +64,7 @@ export async function executeActivity(this: IExecuteFunctions): Promise<INodeExe
 				returnData.push({ json: response, pairedItem: i });
 			} else if (operation === 'list') {
 				const returnAll = this.getNodeParameter('returnAll', i) as boolean;
-				const filters = this.getNodeParameter('filters', i) as any;
+				const filters = this.getNodeParameter('filters', i) as IDataObject;
 
 				// Setting up QS
 				const qs: IDataObject = { ...filters };
@@ -75,7 +75,7 @@ export async function executeActivity(this: IExecuteFunctions): Promise<INodeExe
 				qs.limit = limit;
 
 				// Handle pagination if returnAll is true
-				let activities: any[] = [];
+				let activities: IDataObject[] = [];
 				let fetchMore = true;
 
 				while (fetchMore) {

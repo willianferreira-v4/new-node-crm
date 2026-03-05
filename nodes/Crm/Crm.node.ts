@@ -1,5 +1,5 @@
 import type { IExecuteFunctions, INodeType, INodeTypeDescription } from 'n8n-workflow';
-import { NodeConnectionTypes } from 'n8n-workflow';
+import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 import { leadProperties } from './descriptions/lead';
 import { activityProperties } from './descriptions/activity';
 import { boardProperties } from './descriptions/board';
@@ -91,6 +91,6 @@ export class Crm implements INodeType {
 			return executeOpportunity.call(this);
 		}
 
-		throw new Error(`The resource "${resource}" is not known!`);
+		throw new NodeOperationError(this.getNode(), `The resource "${resource}" is not known!`);
 	}
 }
