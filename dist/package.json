@@ -1,6 +1,6 @@
 {
     "name": "n8n-nodes-crm",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "description": "Esse é um pacote de nós personalizado para n8n, focado em integrações com sistemas de CRM. Ele inclui nós para conectar, gerenciar e automatizar fluxos de trabalho relacionados a dados de clientes, facilitando a sincronização e manipulação dessas informações dentro do n8n.",
     "license": "MIT",
     "homepage": "",

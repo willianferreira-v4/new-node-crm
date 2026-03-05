@@ -1,28 +1,4 @@
 import type { INodeProperties } from 'n8n-workflow';
-import {
-	customFieldsOptions,
-	leadReasonOptions,
-	leadCohortOptions,
-	leadTemperatureOptions,
-	leadMeetingStatusOptions,
-	leadFirstDestinationOptions,
-	leadRevenueOptions,
-	leadFoodSubnicheOptions,
-	leadBrokerStatusOptions,
-	leadSegmentOptions,
-	leadMarketingProductsOptions,
-	leadAcquisitionChannelOptions,
-	leadLpRevenueOptions,
-	leadLeadSourceOptions,
-	leadOpportunitySourceOptions,
-	leadOriginChannelOptions,
-	leadBusinessModelOptions,
-	leadBooleanFieldNames,
-	leadDateFieldNames,
-	leadDateTimeFieldNames,
-	leadNumberFieldNames,
-	leadTextFieldNames,
-} from './options';
 
 export const leadCreateAndUpdateDescription: INodeProperties[] = [
 	{
@@ -44,6 +20,24 @@ export const leadCreateAndUpdateDescription: INodeProperties[] = [
 			'The owner for this lead. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
+		displayName: 'Board Name or ID',
+		name: 'boardId',
+		type: 'options',
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['lead'],
+				operation: ['createAndUpdate'],
+			},
+		},
+		typeOptions: {
+			loadOptionsMethod: 'getBoards',
+		},
+		default: '',
+		description:
+			'The board where the lead will be created. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+	},
+	{
 		displayName: 'Coluna De Entrada Do Lead Name or ID',
 		name: 'columnIdCreateUpdate',
 		type: 'options',
@@ -56,6 +50,7 @@ export const leadCreateAndUpdateDescription: INodeProperties[] = [
 		},
 		typeOptions: {
 			loadOptionsMethod: 'getColumns',
+			loadOptionsDependsOn: ['boardId'],
 		},
 		default: '',
 		description:
@@ -280,272 +275,73 @@ export const leadCreateAndUpdateDescription: INodeProperties[] = [
 				displayName: 'Field',
 				values: [
 					{
-						displayName: 'Field Name',
-						name: 'fieldName',
-						type: 'options',
-						options: customFieldsOptions,
-						default: 'arquivado',
-						description: 'The custom field to update',
-					},
-					// Boolean fields
-					{
-						displayName: 'Field Value',
+						displayName: 'Boolean Value',
 						name: 'booleanValue',
 						type: 'boolean',
-						displayOptions: {
-							show: {
-								fieldName: leadBooleanFieldNames,
-							},
-						},
 						default: false,
-						description: 'Whether the field is true or false',
 					},
-					// Dropdown fields with options
 					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
+						displayName: 'Custom Field Name or ID',
+						name: 'fieldName',
 						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['razao_da_desqualificacao'],
-							},
-						},
-						options: leadReasonOptions,
-						default: 'Adolescente/Criança',
+						default: '',
+						description: 'The custom field to update. Choose from the list, or specify an ID using an expression.',
 					},
 					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['cohort'],
-							},
-						},
-						options: leadCohortOptions,
-						default: 'CPG',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['temperatura'],
-							},
-						},
-						options: leadTemperatureOptions,
-						default: 'Quente',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['status_da_reuniao'],
-							},
-						},
-						options: leadMeetingStatusOptions,
-						default: 'Falta marcar',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['primeiro_destino'],
-							},
-						},
-						options: leadFirstDestinationOptions,
-						default: 'Blackbox',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['faturamento_mensal'],
-							},
-						},
-						options: leadRevenueOptions,
-						default: 'Até 50 mil',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['subnicho_v4_food'],
-							},
-						},
-						options: leadFoodSubnicheOptions,
-						default: 'Lanchonete e Hamburgueria',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['status_leadbroker'],
-							},
-						},
-						options: leadBrokerStatusOptions,
-						default: 'Leilão',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['segmento'],
-							},
-						},
-						options: leadSegmentOptions,
-						default: 'Serviço',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['produtos_marketing'],
-							},
-						},
-						options: leadMarketingProductsOptions,
-						default: 'Soluções Comerciais',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['canal_de_aquisicao'],
-							},
-						},
-						options: leadAcquisitionChannelOptions,
-						default: 'Leadbroker',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['faturamento_da_lp'],
-							},
-						},
-						options: leadLpRevenueOptions,
-						default: 'Até 50 mil',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['fonte_do_lead'],
-							},
-						},
-						options: leadLeadSourceOptions,
-						default: 'Inside',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['fonte_da_oportunidade'],
-							},
-						},
-						options: leadOpportunitySourceOptions,
-						default: 'Inside',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['canal_de_origem'],
-							},
-						},
-						options: leadOriginChannelOptions,
-						default: 'Facebook',
-					},
-					{
-						displayName: 'Field Value',
-						name: 'dropdownValue',
-						type: 'options',
-						displayOptions: {
-							show: {
-								fieldName: ['modelo_de_negocios'],
-							},
-						},
-						options: leadBusinessModelOptions,
-						default: 'Inside Sales',
-					},
-					// Date fields
-					{
-						displayName: 'Field Value',
+						displayName: 'Date Value',
 						name: 'dateValue',
 						type: 'dateTime',
-						displayOptions: {
-							show: {
-								fieldName: leadDateFieldNames,
-							},
-						},
 						default: '',
-						description: 'The date value for the field',
 					},
-					// DateTime fields
 					{
-						displayName: 'Field Value',
-						name: 'dateTimeValue',
-						type: 'dateTime',
-						displayOptions: {
-							show: {
-								fieldName: leadDateTimeFieldNames,
-							},
-						},
-						default: '',
-						description: 'The date/time value for the field',
-					},
-					// Number fields
-					{
-						displayName: 'Field Value',
+						displayName: 'Number Value',
 						name: 'numberValue',
 						type: 'number',
-						displayOptions: {
-							show: {
-								fieldName: leadNumberFieldNames,
-							},
-						},
-						default: 0,
-						description: 'The numeric value for the field',
+						default: 0
 					},
-					// Text fields (default for all others)
 					{
-						displayName: 'Field Value',
-						name: 'textValue',
-						type: 'string',
-						displayOptions: {
-							show: {
-								fieldName: leadTextFieldNames,
-							},
-						},
+						displayName: 'Option Value',
+						name: 'optionValue',
+						type: 'options',
 						default: '',
-						description: 'The text value for the field',
+						description: 'Select an option for the custom field',
 					},
-				],
+					{
+						displayName: 'String Value',
+						name: 'listValue',
+						type: 'string',
+						default: '',
+					},
+					{
+						displayName: 'Value Type',
+						name: 'valueType',
+						type: 'options',
+						options: [
+							{
+								name: 'Boolean',
+								value: 'booleanValue',
+							},
+							{
+								name: 'Date',
+								value: 'dateValue',
+							},
+							{
+								name: 'Number',
+								value: 'numberValue',
+							},
+							{
+								name: 'Option (Predefined)',
+								value: 'optionValue',
+							},
+							{
+								name: 'String\t/\tList',
+								value: 'listValues',
+							},
+						],
+							required:	true,
+						default: 'listValues',
+					},
+			],
 			},
 		],
 	},

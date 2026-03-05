@@ -16,6 +16,24 @@ export const leadUpdateColumnDescription: INodeProperties[] = [
 		description: 'The ID of the card (lead) to move',
 	},
 	{
+		displayName: 'Board Name or ID',
+		name: 'boardId',
+		type: 'options',
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['lead'],
+				operation: ['updateLeadColumn'],
+			},
+		},
+		typeOptions: {
+			loadOptionsMethod: 'getBoards',
+		},
+		default: '',
+		description:
+			'The board where the column is located. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+	},
+	{
 		displayName: 'Coluna De Destino Name or ID',
 		name: 'toColumnIdUpdate',
 		type: 'options',
@@ -28,6 +46,7 @@ export const leadUpdateColumnDescription: INodeProperties[] = [
 		},
 		typeOptions: {
 			loadOptionsMethod: 'getColumns',
+			loadOptionsDependsOn: ['boardId'],
 		},
 		default: '',
 		description:

@@ -17,6 +17,24 @@ export const leadDisqualifyDescription: INodeProperties[] = [
 		description: 'The ID of the card (lead) to disqualify',
 	},
 	{
+		displayName: 'Board Name or ID',
+		name: 'boardId',
+		type: 'options',
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['lead'],
+				operation: ['disqualifyLead'],
+			},
+		},
+		typeOptions: {
+			loadOptionsMethod: 'getBoards',
+		},
+		default: '',
+		description:
+			'The board where the column is located. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+	},
+	{
 		displayName: 'Coluna De Desqualificação Name or ID',
 		name: 'toColumnId',
 		type: 'options',
@@ -29,6 +47,7 @@ export const leadDisqualifyDescription: INodeProperties[] = [
 		},
 		typeOptions: {
 			loadOptionsMethod: 'getColumns',
+			loadOptionsDependsOn: ['boardId'],
 		},
 		default: '',
 		description:

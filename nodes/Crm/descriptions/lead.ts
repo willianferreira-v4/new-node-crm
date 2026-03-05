@@ -7,6 +7,11 @@ import { leadUpdateColumnDescription } from './lead/updateLeadColumn';
 import { leadDisqualifyDescription } from './lead/disqualifyLead';
 import { leadChangeTenantDescription } from './lead/changeTenant';
 import { leadUpdateDescription } from './lead/update';
+import { leadAddLabelDescription } from './lead/addLabel';
+import { leadRemoveLabelDescription } from './lead/removeLabel';
+import { leadUpsertCustomFieldDescription } from './lead/upsertCustomField';
+import { leadGetDescription } from './lead/get';
+import { leadListDescription } from './lead/list';
 
 export const leadProperties: INodeProperties[] = [
 	...leadBaseDescription,
@@ -24,4 +29,14 @@ export const leadProperties: INodeProperties[] = [
 	...leadChangeTenantDescription,
 	// Update Lead fields
 	...leadUpdateDescription,
+	// Add Label fields
+	...leadAddLabelDescription,
+	// Remove Label fields
+	...leadRemoveLabelDescription,
+	// Upsert Custom Field fields
+	...leadUpsertCustomFieldDescription,
+	// Get Lead fields
+	...leadGetDescription,
+	// List Leads fields
+	...leadListDescription,
 ];

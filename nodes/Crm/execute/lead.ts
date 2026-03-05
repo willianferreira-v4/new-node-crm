@@ -5,22 +5,19 @@ import type {
 	INodeExecutionData,
 } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
+import { getAuthToken, handleExecuteError, cleanObject } from '../../GenericFunctions';
 
 export async function executeLead(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 	const items = this.getInputData();
 	const returnData: INodeExecutionData[] = [];
 
-	const credentials = await this.getCredentials('crmApi');
-	const apiUrl = credentials.apiUrl as string;
-	const clientId = credentials.clientId as string;
-	const clientSecret = credentials.clientSecret as string;
+	const { token, apiUrl } = await getAuthToken(this);
 
 	for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
 		try {
 			const operation = this.getNodeParameter('operation', itemIndex) as string;
 
 			if (operation === 'createLead') {
-				const createLeadUrl = credentials.createLeadUrl as string;
 				const ownerId = this.getNodeParameter('ownerId', itemIndex) as string;
 				const columnId = this.getNodeParameter('columnId', itemIndex) as string;
 				const companyName = this.getNodeParameter('companyName', itemIndex) as string;
@@ -46,31 +43,29 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 				const utmTerm = this.getNodeParameter('utmTerm', itemIndex, '') as string;
 				const sourcePage = this.getNodeParameter('sourcePage', itemIndex, '') as string;
 
-				const body: IDataObject = {
+				const body: IDataObject = cleanObject({
 					ownerId,
 					companyName,
 					title,
-				};
-
-				if (email) body.email = email;
-				if (phone) body.phone = phone;
-				if (taxId) body.taxId = taxId;
-				if (companyNationality) body.companyNationality = companyNationality;
-				if (originChannelId) body.originChannelId = originChannelId;
-				if (acquisitionChannelId) body.acquisitionChannelId = acquisitionChannelId;
-				if (utmSource) body.utmSource = utmSource;
-				if (utmCampaign) body.utmCampaign = utmCampaign;
-				if (utmContent) body.utmContent = utmContent;
-				if (utmMedium) body.utmMedium = utmMedium;
-				if (utmTerm) body.utmTerm = utmTerm;
-				if (sourcePage) body.sourcePage = sourcePage;
+					email,
+					phone,
+					taxId,
+					companyNationality,
+					originChannelId,
+					acquisitionChannelId,
+					utmSource,
+					utmCampaign,
+					utmContent,
+					utmMedium,
+					utmTerm,
+					sourcePage,
+				});
 
 				const options: IHttpRequestOptions = {
 					method: 'POST',
-					url: `${apiUrl}${createLeadUrl}/${columnId}`,
+					url: `${apiUrl.replace(/\/$/, '')}/cards/leads/integration/${columnId}`,
 					headers: {
-						'x-client-id': clientId,
-						'x-client-secret': clientSecret,
+						Authorization: `Bearer ${token}`,
 						'Content-Type': 'application/json',
 					},
 					body,
@@ -79,9 +74,6 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 				const response = await this.helpers.httpRequest(options);
 				returnData.push({ json: response, pairedItem: itemIndex });
 			} else if (operation === 'createAndUpdate') {
-				const createLeadUrl = credentials.createLeadUrl as string;
-				const updateLeadUrl = credentials.updateLeadUrl as string;
-
 				// Get create lead parameters
 				const ownerId = this.getNodeParameter('ownerIdCreateUpdate', itemIndex) as string;
 				const columnId = this.getNodeParameter('columnIdCreateUpdate', itemIndex) as string;
@@ -117,32 +109,30 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 				const sourcePage = this.getNodeParameter('sourcePageCreateUpdate', itemIndex, '') as string;
 
 				// Build create lead body
-				const createBody: IDataObject = {
+				const createBody: IDataObject = cleanObject({
 					ownerId,
 					companyName,
 					title,
-				};
-
-				if (email) createBody.email = email;
-				if (phone) createBody.phone = phone;
-				if (taxId) createBody.taxId = taxId;
-				if (companyNationality) createBody.companyNationality = companyNationality;
-				if (originChannelId) createBody.originChannelId = originChannelId;
-				if (acquisitionChannelId) createBody.acquisitionChannelId = acquisitionChannelId;
-				if (utmSource) createBody.utmSource = utmSource;
-				if (utmCampaign) createBody.utmCampaign = utmCampaign;
-				if (utmContent) createBody.utmContent = utmContent;
-				if (utmMedium) createBody.utmMedium = utmMedium;
-				if (utmTerm) createBody.utmTerm = utmTerm;
-				if (sourcePage) createBody.sourcePage = sourcePage;
+					email,
+					phone,
+					taxId,
+					companyNationality,
+					originChannelId,
+					acquisitionChannelId,
+					utmSource,
+					utmCampaign,
+					utmContent,
+					utmMedium,
+					utmTerm,
+					sourcePage,
+				});
 
 				// Create the lead
 				const createOptions: IHttpRequestOptions = {
 					method: 'POST',
-					url: `${apiUrl}${createLeadUrl}/${columnId}`,
+					url: `${apiUrl.replace(/\/$/, '')}/cards/leads/integration/${columnId}`,
 					headers: {
-						'x-client-id': clientId,
-						'x-client-secret': clientSecret,
+						Authorization: `Bearer ${token}`,
 						'Content-Type': 'application/json',
 					},
 					body: createBody,
@@ -169,86 +159,46 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 					[],
 				) as IDataObject[];
 
-				// Parse custom field IDs from credentials
-				const customFieldIdsJson = credentials.customFieldIds as string;
-				let customFieldIds: IDataObject;
-
-				try {
-					customFieldIds = JSON.parse(customFieldIdsJson);
-				} catch (error) {
-					throw new NodeOperationError(
-						this.getNode(),
-						`Invalid JSON in custom_field_ids credential: ${error.message}`,
-						{ itemIndex },
-					);
-				}
-
 				const updateResponses: IDataObject[] = [];
 
 				// Update custom fields if provided
 				if (customFields && customFields.length > 0) {
 					for (const fieldData of customFields) {
-						const fieldName = fieldData.fieldName as string;
+						const fieldId = fieldData.fieldName as string;
+						const valueType = fieldData.valueType as string;
 
-						// Get field configuration
-						const fieldConfig = customFieldIds[fieldName] as IDataObject;
-						if (!fieldConfig) {
-							throw new NodeOperationError(
-								this.getNode(),
-								`Field "${fieldName}" not found in custom_field_ids configuration`,
-								{ itemIndex },
-							);
-						}
-
-						const fieldId = fieldConfig.id as string;
-						const fieldType = fieldConfig.type as string;
-
-						// Get the appropriate value based on field type
-						let fieldValue;
-						if (fieldData.booleanValue !== undefined) {
-							fieldValue = fieldData.booleanValue;
-						} else if (fieldData.dropdownValue !== undefined) {
-							fieldValue = fieldData.dropdownValue;
-						} else if (fieldData.dateValue !== undefined) {
-							fieldValue = fieldData.dateValue;
-						} else if (fieldData.dateTimeValue !== undefined) {
-							fieldValue = fieldData.dateTimeValue;
-						} else if (fieldData.numberValue !== undefined) {
-							fieldValue = fieldData.numberValue;
-						} else if (fieldData.textValue !== undefined) {
-							fieldValue = fieldData.textValue;
-						}
-
-						// Skip if value is null, undefined or empty string
-						if (fieldValue === null || fieldValue === undefined || fieldValue === '') {
-							continue;
-						}
-
-						// Build update body based on field type
 						const updateBody: IDataObject = {
 							cardId,
 							cardCustomFieldsId: fieldId,
 						};
 
-						if (['TEXT_SHORT', 'TEXT_LONG', 'DROPDOWN'].includes(fieldType)) {
-							updateBody.listValues = [fieldValue];
-						} else if (['DATETIME', 'DATE'].includes(fieldType)) {
-							updateBody.dateValue = fieldValue;
-						} else if (fieldType === 'BOOLEAN') {
-							updateBody.booleanValue = fieldValue;
-						} else if (fieldType === 'NUMBER_DECIMAL') {
-							updateBody.numberValue = fieldValue;
-						} else {
-							// Default to listValues for unknown types
-							updateBody.listValues = [fieldValue];
+						if (valueType === 'listValues') {
+							const val = fieldData.listValue as string;
+							if (val === undefined || val === '') continue;
+							updateBody.listValues = [val];
+						} else if (valueType === 'optionValue') {
+							const val = fieldData.optionValue as string;
+							if (val === undefined || val === '') continue;
+							updateBody.listValues = [val];
+						} else if (valueType === 'booleanValue') {
+							const val = fieldData.booleanValue as boolean;
+							if (val === undefined) continue;
+							updateBody.booleanValue = val;
+						} else if (valueType === 'dateValue') {
+							const val = fieldData.dateValue as string;
+							if (val === undefined || val === '') continue;
+							updateBody.dateValue = val;
+						} else if (valueType === 'numberValue') {
+							const val = fieldData.numberValue as number;
+							if (val === undefined) continue;
+							updateBody.numberValue = val;
 						}
 
 						const updateOptions: IHttpRequestOptions = {
 							method: 'POST',
-							url: `${apiUrl}${updateLeadUrl}`,
+							url: `${apiUrl.replace(/\/$/, '')}/card-custom-fields-value/upsert`,
 							headers: {
-								'x-client-id': clientId,
-								'x-client-secret': clientSecret,
+								Authorization: `Bearer ${token}`,
 								'Content-Type': 'application/json',
 							},
 							body: updateBody,
@@ -257,7 +207,7 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 
 						const updateResponse = await this.helpers.httpRequest(updateOptions);
 						updateResponses.push({
-							field: fieldName,
+							field: fieldId,
 							response: updateResponse,
 						});
 					}
@@ -274,7 +224,6 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 					pairedItem: itemIndex,
 				});
 			} else if (operation === 'updateLead') {
-				const updateLeadMainUrl = credentials.updateLeadMainUrl as string;
 				const cardId = this.getNodeParameter('cardIdUpdate', itemIndex) as string;
 
 				// Get all optional fields
@@ -309,31 +258,31 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 				) as string;
 
 				// Build body with only non-empty fields
-				const body: IDataObject = {};
-				if (title) body.title = title;
-				if (companyName) body.companyName = companyName;
-				if (email) body.email = email;
-				if (phone) body.phone = phone;
-				if (taxId) body.taxId = taxId;
-				if (ownerId) body.ownerId = ownerId;
-				if (tenantId) body.tenantId = tenantId;
-				if (originChannelId) body.originChannelId = originChannelId;
-				if (acquisitionChannelId) body.acquisitionChannelId = acquisitionChannelId;
-				if (utmSource) body.utmSource = utmSource;
-				if (utmCampaign) body.utmCampaign = utmCampaign;
-				if (utmContent) body.utmContent = utmContent;
-				if (utmMedium) body.utmMedium = utmMedium;
-				if (utmTerm) body.utmTerm = utmTerm;
-				if (sourcePage) body.sourcePage = sourcePage;
-				if (lostReason) body.lostReason = lostReason;
-				if (lostDescription) body.lostDescription = lostDescription;
+				const body: IDataObject = cleanObject({
+					title,
+					companyName,
+					email,
+					phone,
+					taxId,
+					ownerId,
+					tenantId,
+					originChannelId,
+					acquisitionChannelId,
+					utmSource,
+					utmCampaign,
+					utmContent,
+					utmMedium,
+					utmTerm,
+					sourcePage,
+					lostReason,
+					lostDescription,
+				});
 
 				const options: IHttpRequestOptions = {
 					method: 'PUT',
-					url: `${apiUrl}${updateLeadMainUrl}/${cardId}`,
+					url: `${apiUrl.replace(/\/$/, '')}/cards/${cardId}`,
 					headers: {
-						'x-client-id': clientId,
-						'x-client-secret': clientSecret,
+						Authorization: `Bearer ${token}`,
 						'Content-Type': 'application/json',
 					},
 					body,
@@ -343,7 +292,6 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 				const response = await this.helpers.httpRequest(options);
 				returnData.push({ json: response, pairedItem: itemIndex });
 			} else if (operation === 'updateLeadField') {
-				const updateLeadUrl = credentials.updateLeadUrl as string;
 				const cardId = this.getNodeParameter('cardId', itemIndex) as string;
 				const fieldsToUpdate = this.getNodeParameter(
 					'fieldsToUpdate.field',
@@ -351,85 +299,45 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 					[],
 				) as IDataObject[];
 
-				// Parse custom field IDs from credentials
-				const customFieldIdsJson = credentials.customFieldIds as string;
-				let customFieldIds: IDataObject;
-
-				try {
-					customFieldIds = JSON.parse(customFieldIdsJson);
-				} catch (error) {
-					throw new NodeOperationError(
-						this.getNode(),
-						`Invalid JSON in custom_field_ids credential: ${error.message}`,
-						{ itemIndex },
-					);
-				}
-
 				const responses: IDataObject[] = [];
 
 				// Process each field
 				for (const fieldData of fieldsToUpdate) {
-					const fieldName = fieldData.fieldName as string;
+					const fieldId = fieldData.fieldName as string;
+					const valueType = fieldData.valueType as string;
 
-					// Get field configuration
-					const fieldConfig = customFieldIds[fieldName] as IDataObject;
-					if (!fieldConfig) {
-						throw new NodeOperationError(
-							this.getNode(),
-							`Field "${fieldName}" not found in custom_field_ids configuration`,
-							{ itemIndex },
-						);
-					}
-
-					const fieldId = fieldConfig.id as string;
-					const fieldType = fieldConfig.type as string;
-
-					// Get the appropriate value based on field type
-					let fieldValue;
-					if (fieldData.booleanValue !== undefined) {
-						fieldValue = fieldData.booleanValue;
-					} else if (fieldData.dropdownValue !== undefined) {
-						fieldValue = fieldData.dropdownValue;
-					} else if (fieldData.dateValue !== undefined) {
-						fieldValue = fieldData.dateValue;
-					} else if (fieldData.dateTimeValue !== undefined) {
-						fieldValue = fieldData.dateTimeValue;
-					} else if (fieldData.numberValue !== undefined) {
-						fieldValue = fieldData.numberValue;
-					} else if (fieldData.textValue !== undefined) {
-						fieldValue = fieldData.textValue;
-					}
-
-					// Skip if value is null, undefined or empty string
-					if (fieldValue === null || fieldValue === undefined || fieldValue === '') {
-						continue;
-					}
-
-					// Build body based on field type
 					const body: IDataObject = {
 						cardId,
 						cardCustomFieldsId: fieldId,
 					};
 
-					if (['TEXT_SHORT', 'TEXT_LONG', 'DROPDOWN'].includes(fieldType)) {
-						body.listValues = [fieldValue];
-					} else if (['DATETIME', 'DATE'].includes(fieldType)) {
-						body.dateValue = fieldValue;
-					} else if (fieldType === 'BOOLEAN') {
-						body.booleanValue = fieldValue;
-					} else if (fieldType === 'NUMBER_DECIMAL') {
-						body.numberValue = fieldValue;
-					} else {
-						// Default to listValues for unknown types
-						body.listValues = [fieldValue];
+					if (valueType === 'listValues') {
+						const val = fieldData.listValue as string;
+						if (val === undefined || val === '') continue;
+						body.listValues = [val];
+					} else if (valueType === 'optionValue') {
+						const val = fieldData.optionValue as string;
+						if (val === undefined || val === '') continue;
+						body.listValues = [val];
+					} else if (valueType === 'booleanValue') {
+						const val = fieldData.booleanValue as boolean;
+						if (val === undefined) continue;
+						body.booleanValue = val;
+					} else if (valueType === 'dateValue') {
+						const val = fieldData.dateValue as string;
+						if (val === undefined || val === '') continue;
+						body.dateValue = val;
+					} else if (valueType === 'numberValue') {
+						const val = fieldData.numberValue as number;
+						if (val === undefined) continue;
+						body.numberValue = val;
 					}
 
 					const options: IHttpRequestOptions = {
 						method: 'POST',
-						url: `${apiUrl}${updateLeadUrl}`,
+						url: `${apiUrl.replace(/\/$/, '')}/card-custom-fields-value/upsert`,
 						headers: {
-							'x-client-id': clientId,
-							'x-client-secret': clientSecret,
+							Authorization: `Bearer ${token}`,
 							'Content-Type': 'application/json',
 						},
 						body,
@@ -438,7 +346,7 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 
 					const response = await this.helpers.httpRequest(options);
 					responses.push({
-						field: fieldName,
+						field: fieldId,
 						response,
 					});
 				}
@@ -452,7 +360,6 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 					pairedItem: itemIndex,
 				});
 			} else if (operation === 'disqualifyLead') {
-				const disqualifyLeadUrl = credentials.disqualifyLeadUrl as string;
 				const cardId = this.getNodeParameter('cardIdDisqualify', itemIndex) as string;
 				const toColumnId = this.getNodeParameter('toColumnId', itemIndex) as string;
 				const newIndex = this.getNodeParameter('newIndex', itemIndex) as number;
@@ -477,10 +384,9 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 
 				const options: IHttpRequestOptions = {
 					method: 'POST',
-					url: `${apiUrl}${disqualifyLeadUrl}/${cardId}`,
+					url: `${apiUrl.replace(/\/$/, '')}/cards/${cardId}/disqualify`,
 					headers: {
-						'x-client-id': clientId,
-						'x-client-secret': clientSecret,
+						Authorization: `Bearer ${token}`,
 						'Content-Type': 'application/json',
 					},
 					body,
@@ -490,20 +396,19 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 				const response = await this.helpers.httpRequest(options);
 				returnData.push({ json: response, pairedItem: itemIndex });
 			} else if (operation === 'changeTenant') {
-				const changeTenantUrl = credentials.changeTenantUrl as string;
 				const cardId = this.getNodeParameter('cardIdChangeTenant', itemIndex) as string;
 				const tenantId = this.getNodeParameter('tenantId', itemIndex) as string;
 
 				const body: IDataObject = {
-					tenantId,
+					leadId: cardId,
+					newTenantId: tenantId,
 				};
 
 				const options: IHttpRequestOptions = {
 					method: 'PUT',
-					url: `${apiUrl}${changeTenantUrl}/${cardId}`,
+					url: `${apiUrl.replace(/\/$/, '')}/tenants/lead`,
 					headers: {
-						'x-client-id': clientId,
-						'x-client-secret': clientSecret,
+						Authorization: `Bearer ${token}`,
 						'Content-Type': 'application/json',
 					},
 					body,
@@ -512,88 +417,165 @@ export async function executeLead(this: IExecuteFunctions): Promise<INodeExecuti
 
 				const response = await this.helpers.httpRequest(options);
 				returnData.push({ json: response, pairedItem: itemIndex });
+			} else if (operation === 'updateLeadColumn') {
+				const cardId = this.getNodeParameter('cardIdUpdateColumn', itemIndex) as string;
+				const toColumnId = this.getNodeParameter('toColumnIdUpdate', itemIndex) as string;
+				const newIndex = this.getNodeParameter('newIndexUpdate', itemIndex) as number;
+				const ignoreColumnsRequiredFieldsValidation = this.getNodeParameter(
+					'ignoreColumnsRequiredFieldsValidationUpdate',
+					itemIndex,
+				) as boolean;
+
+				const body: IDataObject = {
+					toColumnId,
+					newIndex,
+					ignoreColumnsRequiredFieldsValidation,
+				};
+
+				const options: IHttpRequestOptions = {
+					method: 'POST',
+					url: `${apiUrl.replace(/\/$/, '')}/cards/move/${cardId}`,
+					headers: {
+						Authorization: `Bearer ${token}`,
+						'Content-Type': 'application/json',
+					},
+					body,
+					json: true,
+				};
+
+				const response = await this.helpers.httpRequest(options);
+				returnData.push({ json: response, pairedItem: itemIndex });
+			} else if (operation === 'addLabel') {
+				const cardId = this.getNodeParameter('cardId', itemIndex) as string;
+				const labelId = this.getNodeParameter('labelId', itemIndex) as string;
+
+				const body: IDataObject = {
+					boardLabelId: labelId,
+				};
+
+				const options: IHttpRequestOptions = {
+					method: 'POST',
+					url: `${apiUrl.replace(/\/$/, '')}/cards/${cardId}/labels`,
+					headers: {
+						Authorization: `Bearer ${token}`,
+						'Content-Type': 'application/json',
+					},
+					body,
+					json: true,
+				};
+
+				const response = await this.helpers.httpRequest(options);
+				returnData.push({ json: response, pairedItem: itemIndex });
+			} else if (operation === 'removeLabel') {
+				const cardId = this.getNodeParameter('cardId', itemIndex) as string;
+				const labelId = this.getNodeParameter('labelId', itemIndex) as string;
+
+				const options: IHttpRequestOptions = {
+					method: 'DELETE',
+					url: `${apiUrl.replace(/\/$/, '')}/cards/${cardId}/labels/${labelId}`,
+					headers: {
+						Authorization: `Bearer ${token}`,
+						'Content-Type': 'application/json',
+					},
+					json: true,
+				};
+
+				const response = await this.helpers.httpRequest(options);
+				returnData.push({ json: response || { success: true }, pairedItem: itemIndex });
+			} else if (operation === 'upsertCustomField') {
+				const cardId = this.getNodeParameter('cardId', itemIndex) as string;
+				const cardCustomFieldsId = this.getNodeParameter('cardCustomFieldsId', itemIndex) as string;
+				const valueType = this.getNodeParameter('valueType', itemIndex) as string;
+
+				const body: IDataObject = {
+					cardId,
+					cardCustomFieldsId,
+				};
+
+				if (valueType === 'listValues') {
+					const val = this.getNodeParameter('listValue', itemIndex) as string;
+					body.listValues = [val];
+				} else if (valueType === 'optionValue') {
+					const val = this.getNodeParameter('optionValue', itemIndex) as string;
+					body.listValues = [val];
+				} else if (valueType === 'booleanValue') {
+					body.booleanValue = this.getNodeParameter('booleanValue', itemIndex) as boolean;
+				} else if (valueType === 'dateValue') {
+					body.dateValue = this.getNodeParameter('dateValue', itemIndex) as string;
+				}
+
+				const options: IHttpRequestOptions = {
+					method: 'POST',
+					url: `${apiUrl.replace(/\/$/, '')}/card-custom-fields-value/upsert`,
+					headers: {
+						Authorization: `Bearer ${token}`,
+						'Content-Type': 'application/json',
+					},
+					body,
+					json: true,
+				};
+
+				const response = await this.helpers.httpRequest(options);
+				returnData.push({ json: response, pairedItem: itemIndex });
+			} else if (operation === 'get') {
+				const cardId = this.getNodeParameter('cardId', itemIndex) as string;
+
+				const options: IHttpRequestOptions = {
+					method: 'GET',
+					url: `${apiUrl.replace(/\/$/, '')}/columns/cards/${cardId}`,
+					headers: {
+						Authorization: `Bearer ${token}`,
+						'Content-Type': 'application/json',
+					},
+					json: true,
+				};
+
+				const response = await this.helpers.httpRequest(options);
+				returnData.push({ json: response, pairedItem: itemIndex });
+			} else if (operation === 'list') {
+				const getBy = this.getNodeParameter('getBy', itemIndex) as string;
+				const returnAll = this.getNodeParameter('returnAll', itemIndex) as boolean;
+				const filters = this.getNodeParameter('filters', itemIndex) as IDataObject;
+
+				const qs: IDataObject = { ...filters };
+
+				let url = '';
+				if (getBy === 'board') {
+					qs.boardId = this.getNodeParameter('boardId', itemIndex) as string;
+					url = `${apiUrl.replace(/\/$/, '')}/cards/boards`;
+				} else {
+					qs.columnId = this.getNodeParameter('columnId', itemIndex) as string;
+					url = `${apiUrl.replace(/\/$/, '')}/cards`;
+				}
+
+				if (!returnAll) {
+					qs.limit = this.getNodeParameter('limit', itemIndex) as number;
+				}
+
+				const options: IHttpRequestOptions = {
+					method: 'GET',
+					url,
+					headers: {
+						Authorization: `Bearer ${token}`,
+						'Content-Type': 'application/json',
+					},
+					qs,
+					json: true,
+				};
+
+				const response = await this.helpers.httpRequest(options);
+				let leads = response.data || response.items || response;
+				if (!Array.isArray(leads)) {
+					leads = [leads];
+				}
+
+				for (const lead of leads) {
+					returnData.push({ json: lead, pairedItem: itemIndex });
+				}
 			}
 		} catch (error) {
-			// Extract detailed error information
 			const operation = this.getNodeParameter('operation', itemIndex) as string;
-
-			// Try to get the actual error response from various possible locations
-			let responseBody;
-			let statusCode: number | undefined;
-			let requestUrl: string | undefined;
-			let requestMethod: string | undefined;
-
-			// Check multiple possible locations for error details
-			if (error.response) {
-				statusCode = error.response.status || error.response.statusCode;
-				responseBody = error.response.data || error.response.body;
-				requestUrl = error.response.config?.url || error.config?.url;
-				requestMethod = error.response.config?.method || error.config?.method;
-			} else if (error.cause?.response) {
-				statusCode = error.cause.response.status || error.cause.response.statusCode;
-				responseBody = error.cause.response.data || error.cause.response.body;
-				requestUrl = error.cause.response.config?.url;
-				requestMethod = error.cause.response.config?.method;
-			}
-
-			// If still no response body, check error properties directly
-			if (!responseBody && error.options?.body) {
-				responseBody = error.options.body;
-			}
-
-			// Build detailed error message
-			let detailedMessage = `CRM API Error - ${operation}\n\n`;
-			detailedMessage += `Status Code: ${statusCode || 'Unknown'}\n`;
-
-			if (requestMethod && requestUrl) {
-				detailedMessage += `Request: ${requestMethod.toUpperCase()} ${requestUrl}\n\n`;
-			}
-
-			if (responseBody) {
-				// Try to extract and format specific error messages
-				if (responseBody.errors && Array.isArray(responseBody.errors)) {
-					detailedMessage += `Errors:\n`;
-					responseBody.errors.forEach((err: { code: number; message: string }, index: number) => {
-						detailedMessage += `\n  ${index + 1}. ${err.code || 'Error'}:\n`;
-						detailedMessage += `     ${err.message || JSON.stringify(err)}\n`;
-					});
-
-					if (responseBody.traceId) {
-						detailedMessage += `\nTrace ID: ${responseBody.traceId}\n`;
-					}
-				} else if (responseBody.message) {
-					detailedMessage += `Message: ${responseBody.message}\n`;
-				} else {
-					detailedMessage += `\nAPI Response:\n`;
-					if (typeof responseBody === 'string') {
-						detailedMessage += responseBody;
-					} else {
-						detailedMessage += JSON.stringify(responseBody, null, 2);
-					}
-				}
-			} else {
-				detailedMessage += `\nNo response body available\n`;
-				detailedMessage += `Original error: ${error.message}`;
-			}
-
-			if (this.continueOnFail()) {
-				returnData.push({
-					json: {
-						error: error.message,
-						operation,
-						statusCode,
-						responseBody,
-						requestUrl,
-						requestMethod,
-					},
-					pairedItem: itemIndex,
-				});
-			} else {
-				throw new NodeOperationError(this.getNode(), detailedMessage, {
-					itemIndex,
-					description: `CRM ${operation} operation failed`,
-				});
-			}
+			handleExecuteError(this, error, operation, itemIndex, returnData);
 		}
 	}
 

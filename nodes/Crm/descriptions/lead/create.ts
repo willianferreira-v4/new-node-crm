@@ -20,6 +20,24 @@ export const leadCreateDescription: INodeProperties[] = [
 			'The owner for this lead. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
+		displayName: 'Board Name or ID',
+		name: 'boardId',
+		type: 'options',
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['lead'],
+				operation: ['createLead'],
+			},
+		},
+		typeOptions: {
+			loadOptionsMethod: 'getBoards',
+		},
+		default: '',
+		description:
+			'The board where the lead will be created. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+	},
+	{
 		displayName: 'Coluna De Entrada Do Lead Name or ID',
 		name: 'columnId',
 		type: 'options',
@@ -32,6 +50,7 @@ export const leadCreateDescription: INodeProperties[] = [
 		},
 		typeOptions: {
 			loadOptionsMethod: 'getColumns',
+			loadOptionsDependsOn: ['boardId'],
 		},
 		default: '',
 		description:
